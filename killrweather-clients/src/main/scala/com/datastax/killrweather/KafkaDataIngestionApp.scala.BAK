@@ -24,20 +24,15 @@ import akka.stream.{ActorFlowMaterializerSettings, ActorFlowMaterializer}
 import akka.actor._
 import akka.cluster.Cluster
 import akka.util.Timeout
-//import akka.http.scaladsl.Http
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.routing.BalancingPool
 import kafka.producer.ProducerConfig
 import kafka.serializer.StringEncoder
-//import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigFactory
 import com.datastax.spark.connector.embedded._
 import com.datastax.killrweather.cluster.ClusterAwareNodeGuardian
 import com.datastax.spark.connector.embedded.KafkaEvent.KafkaMessageEnvelope
-
-import akka.io.IO
-import spray.can.Http
-import akka.pattern.ask
-import com.typesafe.config.{ Config, ConfigFactory }
 
 /** Run with: sbt clients/run for automatic data file import to Kafka.
   *
@@ -48,30 +43,13 @@ import com.typesafe.config.{ Config, ConfigFactory }
   *
   * NOTE does not support running on Windows
   */
-object KafkaDataIngestionApp extends App
-    with RequestTimeout 
-    with ShutdownIfNotBound {
-    
-  println("====>>> STARTING KafkaDataIngestionApp")
-    
-  val config = ConfigFactory.load
-  val host = config.getString("killrweather.http.host")
-  val port = config.getInt("killrweather.http.port")
+object KafkaDataIngestionApp extends App {
 
   /** Creates the ActorSystem. */
-  implicit val system = ActorSystem("KillrWeather", ConfigFactory.parseString("akka.remote.netty.tcp.port = 2551"))
+  val system = ActorSystem("KillrWeather", ConfigFactory.parseString("akka.remote.netty.tcp.port = 2551"))
 
-  implicit val executionContext = system.dispatcher
-  
-  implicit val timeout = requestTimeout(config)
-  
   /* The root supervisor and fault tolerance handler of the data ingestion nodes. */
   val guardian = system.actorOf(Props[HttpNodeGuardian], "node-guardian")
-  
-  val api = system.actorOf(Props(new RestApi(timeout)), "httpInterface")
-  
-  val response = IO(Http).ask(Http.Bind(listener = api, interface = host, port = port)) //<co id="ch02_startServer"/>
-  shutdownIfNotBound(response)
 
   system.registerOnTermination {
     guardian ! PoisonPill
@@ -91,8 +69,9 @@ object KafkaDataIngestionApp extends App
  * The ingested data is sent to the kafka actor for processing in the stream.
  */
 final class HttpNodeGuardian extends ClusterAwareNodeGuardian with ClientHelper {
-  
+
   cluster.joinSeedNodes(Vector(cluster.selfAddress))
+
 
   /** The [[KafkaPublisherActor]] as a load-balancing pool router
     * which sends messages to idle or less busy routees to handle work. */
@@ -107,13 +86,10 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian with ClientHelper 
     * - cpu, system load average and heap. */
   cluster registerOnMemberUp {
 
-    /*
     /* As http data is received, publishes to Kafka. */
     context.actorOf(BalancingPool(10).props(
       Props(new HttpDataFeedActor(router))), "dynamic-data-feed")
-      
-    */
-    /*
+
     log.info("Starting data ingestion on {}.", cluster.selfAddress)
 
     /* Handles initial data ingestion in Kafka for running as a demo. */
@@ -123,7 +99,6 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian with ClientHelper 
     }
     
     log.info("File ingestion completed {}.", cluster.selfAddress)
-    */
   }
 
   def initialized: Actor.Receive = {
@@ -163,7 +138,6 @@ class HttpDataFeedActor(kafka: ActorRef) extends Actor with ActorLogging with Cl
     ActorFlowMaterializerSettings(system)
   )
 
-  /*
   val requestHandler: HttpRequest => HttpResponse = {
     case HttpRequest(HttpMethods.POST, Uri.Path("/weather/data"), headers, entity, _) =>
       HttpSource.unapply(headers,entity).collect { 
@@ -185,46 +159,11 @@ class HttpDataFeedActor(kafka: ActorRef) extends Actor with ActorLogging with Cl
           log.info("Accepted new connection from " + connection.remoteAddress)
           connection.handleWithSyncHandler(requestHandler)
     }
-  */
-  //println("++++>>> In HttpDataFeedActor, HttpHost: " + HttpHost + " HttpPort: " + HttpPort)
-  //println("++++>>> In HttpDataFeedActor Http(system): " + http)
+  
+  println("++++>>> In HttpDataFeedActor, HttpHost: " + HttpHost + " HttpPort: " + HttpPort)
+  println("++++>>> In HttpDataFeedActor Http(system): " + http)
 
   def receive : Actor.Receive = {
     case e =>
   }
 }
-
-// RW added
-
-trait RequestTimeout {
-  import scala.concurrent.duration._
-  def requestTimeout(config: Config): Timeout = { //<co id="ch02_timeout_spray_can"/>
-    val t = config.getString("spray.can.server.request-timeout")
-    val d = Duration(t)
-    FiniteDuration(d.length, d.unit)
-  }
-}
-
-trait ShutdownIfNotBound {
-  import scala.concurrent.ExecutionContext
-  import scala.concurrent.Future
-
-  def shutdownIfNotBound(f: Future[Any]) //<co id="ch02_shutdownIfNotBound"/>
-    (implicit system: ActorSystem, ec: ExecutionContext) = {
-    println("---->>> shutdownIfNotBound TOP")
-    f.mapTo[Http.Event].map {
-      case Http.Bound(address) =>
-        println(s"----> REST interface bound to $address")
-      case Http.CommandFailed(cmd) => //<co id="http_command_failed"/>
-        println(s"----> REST interface could not bind: ${cmd.failureMessage}, shutting down.")
-        system.shutdown()
-    }.recover {
-      case e: Throwable =>
-        println(s"----> Unexpected error binding to HTTP: ${e.getMessage}, shutting down.")
-        system.shutdown()
-    }
-  }
-}
-
-
-
