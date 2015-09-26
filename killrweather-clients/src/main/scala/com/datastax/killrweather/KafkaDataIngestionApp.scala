@@ -48,30 +48,30 @@ import com.typesafe.config.{ Config, ConfigFactory }
   *
   * NOTE does not support running on Windows
   */
-object KafkaDataIngestionApp extends App
-    with RequestTimeout 
-    with ShutdownIfNotBound {
+object KafkaDataIngestionApp extends App {
     
   println("====>>> STARTING KafkaDataIngestionApp")
     
-  val config = ConfigFactory.load
-  val host = config.getString("killrweather.http.host")
-  val port = config.getInt("killrweather.http.port")
+  //val config = ConfigFactory.load
+  //val host = config.getString("killrweather.http.host")
+  //val port = config.getInt("killrweather.http.port")
 
   /** Creates the ActorSystem. */
   implicit val system = ActorSystem("KillrWeather", ConfigFactory.parseString("akka.remote.netty.tcp.port = 2551"))
 
-  implicit val executionContext = system.dispatcher
+  //implicit val executionContext = system.dispatcher
   
-  implicit val timeout = requestTimeout(config)
+ // implicit val timeout = requestTimeout(config)
   
   /* The root supervisor and fault tolerance handler of the data ingestion nodes. */
   val guardian = system.actorOf(Props[HttpNodeGuardian], "node-guardian")
   
-  val api = system.actorOf(Props(new RestApi(timeout)), "httpInterface")
+  //val api = system.actorOf(Props(new RestApi(timeout)), "httpInterface")
+  //val response = IO(Http).ask(Http.Bind(listener = api, interface = host, port = port)) //<co id="ch02_startServer"/>
   
-  val response = IO(Http).ask(Http.Bind(listener = api, interface = host, port = port)) //<co id="ch02_startServer"/>
-  shutdownIfNotBound(response)
+  //val response = IO(Http).ask(Http.Bind(listener = guardian, interface = host, port = port)) //<co id="ch02_startServer"/>
+
+  //shutdownIfNotBound(response)
 
   system.registerOnTermination {
     guardian ! PoisonPill
@@ -90,30 +90,37 @@ object KafkaDataIngestionApp extends App
  *
  * The ingested data is sent to the kafka actor for processing in the stream.
  */
-final class HttpNodeGuardian extends ClusterAwareNodeGuardian with ClientHelper {
-  
+final class HttpNodeGuardian extends ClusterAwareNodeGuardian 
+    with ClientHelper
+    with RequestTimeout 
+    with ShutdownIfNotBound {
+
   cluster.joinSeedNodes(Vector(cluster.selfAddress))
 
-  /** The [[KafkaPublisherActor]] as a load-balancing pool router
-    * which sends messages to idle or less busy routees to handle work. */
   val router = context.actorOf(BalancingPool(5).props(
     Props(new KafkaPublisherActor(KafkaHosts, KafkaBatchSendSize))), "kafka-ingestion-router")
 
-  /** Wait for this node's [[akka.cluster.MemberStatus]] to be
-    * [[akka.cluster.ClusterEvent.MemberUp]] before starting work, which means
-    * it's membership in the [[Cluster]] node ring has been gossipped, and we
-    * can leverage the cluster's adaptive load balancing which will route data
-    * to the `KillrWeatherApp` nodes based on most healthy, by their health metrics
-    * - cpu, system load average and heap. */
   cluster registerOnMemberUp {
 
-    /*
     /* As http data is received, publishes to Kafka. */
-    context.actorOf(BalancingPool(10).props(
-      Props(new HttpDataFeedActor(router))), "dynamic-data-feed")
-      
-    */
-    /*
+    /*context.actorOf(BalancingPool(10).props(
+      Props(new HttpDataFeedActor(router))), "dynamic-data-feed")*/
+    
+    val config = ConfigFactory.load
+    val host = config.getString("killrweather.http.host")
+    val port = config.getInt("killrweather.http.port")
+    
+    implicit val system = context.system  
+    implicit val executionContext = system.dispatcher
+    implicit val timeout = requestTimeout(config)
+    
+    /* As http data is received, publishes to Kafka. */
+    val feedApi = system.actorOf(BalancingPool(10)
+        .props(Props(new HttpDataFeedActor(timeout))), "dynamic-data-feed")
+        
+    val response = IO(Http).ask(Http.Bind(listener = feedApi, interface = host, port = port))
+    shutdownIfNotBound(response)
+
     log.info("Starting data ingestion on {}.", cluster.selfAddress)
 
     /* Handles initial data ingestion in Kafka for running as a demo. */
@@ -123,7 +130,6 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian with ClientHelper 
     }
     
     log.info("File ingestion completed {}.", cluster.selfAddress)
-    */
   }
 
   def initialized: Actor.Receive = {
@@ -146,7 +152,7 @@ class KafkaPublisherActor(val producerConfig: ProducerConfig) extends KafkaProdu
 
 /** An Http server receiving requests containing header or entity based data which it sends to Kafka.
   * by delegating to the [[KafkaPublisherActor]]. */
-class HttpDataFeedActor(kafka: ActorRef) extends Actor with ActorLogging with ClientHelper {
+/*class HttpDataFeedActor(kafka: ActorRef) extends Actor with ActorLogging with ClientHelper {
     
   println("++++>>> In HttpDataFeedActor TOP")
 
@@ -189,12 +195,13 @@ class HttpDataFeedActor(kafka: ActorRef) extends Actor with ActorLogging with Cl
   //println("++++>>> In HttpDataFeedActor, HttpHost: " + HttpHost + " HttpPort: " + HttpPort)
   //println("++++>>> In HttpDataFeedActor Http(system): " + http)
 
+  /*
   def receive : Actor.Receive = {
     case e =>
-  }
-}
+  }*/
+}*/
 
-// RW added
+// RW added ---------------------- //
 
 trait RequestTimeout {
   import scala.concurrent.duration._
