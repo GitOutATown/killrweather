@@ -51,27 +51,12 @@ import com.typesafe.config.{ Config, ConfigFactory }
 object KafkaDataIngestionApp extends App {
     
   println("====>>> STARTING KafkaDataIngestionApp")
-    
-  //val config = ConfigFactory.load
-  //val host = config.getString("killrweather.http.host")
-  //val port = config.getInt("killrweather.http.port")
 
   /** Creates the ActorSystem. */
   implicit val system = ActorSystem("KillrWeather", ConfigFactory.parseString("akka.remote.netty.tcp.port = 2551"))
-
-  //implicit val executionContext = system.dispatcher
-  
- // implicit val timeout = requestTimeout(config)
   
   /* The root supervisor and fault tolerance handler of the data ingestion nodes. */
   val guardian = system.actorOf(Props[HttpNodeGuardian], "node-guardian")
-  
-  //val api = system.actorOf(Props(new RestApi(timeout)), "httpInterface")
-  //val response = IO(Http).ask(Http.Bind(listener = api, interface = host, port = port)) //<co id="ch02_startServer"/>
-  
-  //val response = IO(Http).ask(Http.Bind(listener = guardian, interface = host, port = port)) //<co id="ch02_startServer"/>
-
-  //shutdownIfNotBound(response)
 
   system.registerOnTermination {
     guardian ! PoisonPill
@@ -97,18 +82,17 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian
 
   cluster.joinSeedNodes(Vector(cluster.selfAddress))
 
-  val router = context.actorOf(BalancingPool(5).props(
-    Props(new KafkaPublisherActor(KafkaHosts, KafkaBatchSendSize))), "kafka-ingestion-router")
+  /*val router = context.actorOf(BalancingPool(5).props(
+    Props(new KafkaPublisherActor(KafkaHosts, KafkaBatchSendSize))), "kafka-ingestion-router")*/
 
   cluster registerOnMemberUp {
-
-    /* As http data is received, publishes to Kafka. */
-    /*context.actorOf(BalancingPool(10).props(
-      Props(new HttpDataFeedActor(router))), "dynamic-data-feed")*/
     
     val config = ConfigFactory.load
     val host = config.getString("killrweather.http.host")
     val port = config.getInt("killrweather.http.port")
+    
+    println("---->> killrweather.http.host: " + host)
+    println("---->> killrweather.http.port: " + port)
     
     implicit val system = context.system  
     implicit val executionContext = system.dispatcher
@@ -124,10 +108,10 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian
     log.info("Starting data ingestion on {}.", cluster.selfAddress)
 
     /* Handles initial data ingestion in Kafka for running as a demo. */
-    for (fs <- initialData; data <- fs.data) {
+    /*for (fs <- initialData; data <- fs.data) {
       log.info("Sending {} to Kafka", data)
       router ! KafkaMessageEnvelope[String, String](KafkaTopic, KafkaKey, data)
-    }
+    }*/
     
     log.info("File ingestion completed {}.", cluster.selfAddress)
   }
@@ -149,57 +133,6 @@ class KafkaPublisherActor(val producerConfig: ProducerConfig) extends KafkaProdu
     hosts, batchSize, "async", classOf[StringEncoder].getName))
 
 }
-
-/** An Http server receiving requests containing header or entity based data which it sends to Kafka.
-  * by delegating to the [[KafkaPublisherActor]]. */
-/*class HttpDataFeedActor(kafka: ActorRef) extends Actor with ActorLogging with ClientHelper {
-    
-  println("++++>>> In HttpDataFeedActor TOP")
-
-  import Sources._
-  import context.dispatcher
-  import akka.stream.scaladsl._
-  import akka.stream.scaladsl.Flow
-
-  implicit val system = context.system
-
-  implicit val askTimeout: Timeout = 500.millis
-
-  implicit val materializer = ActorFlowMaterializer(
-    ActorFlowMaterializerSettings(system)
-  )
-
-  /*
-  val requestHandler: HttpRequest => HttpResponse = {
-    case HttpRequest(HttpMethods.POST, Uri.Path("/weather/data"), headers, entity, _) =>
-      HttpSource.unapply(headers,entity).collect { 
-          case hs: HeaderSource =>
-            hs.extract.foreach({ fs: FileSource =>
-              log.info(s"Ingesting {} and publishing {} data points to Kafka topic {}.", fs.name, fs.data.size, KafkaTopic)
-              kafka ! KafkaMessageEnvelope[String, String](KafkaTopic, KafkaKey, fs.data:_*)
-            })
-            HttpResponse(200, entity = HttpEntity(MediaTypes.`text/html`, s"POST [${hs.sources.mkString}] successful."))
-      }.getOrElse(HttpResponse(404, entity = "Unsupported request") )
-    case _: HttpRequest =>
-      HttpResponse(400, entity = "Unsupported request")
-  }
-
-  val http = Http(system)
-    .bind(interface = HttpHost, port = HttpPort)
-    .map { 
-      case connection  =>
-          log.info("Accepted new connection from " + connection.remoteAddress)
-          connection.handleWithSyncHandler(requestHandler)
-    }
-  */
-  //println("++++>>> In HttpDataFeedActor, HttpHost: " + HttpHost + " HttpPort: " + HttpPort)
-  //println("++++>>> In HttpDataFeedActor Http(system): " + http)
-
-  /*
-  def receive : Actor.Receive = {
-    case e =>
-  }*/
-}*/
 
 // RW added ---------------------- //
 

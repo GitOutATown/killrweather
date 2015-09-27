@@ -118,6 +118,9 @@ object Dependencies {
     val sparkCassandra    = "com.datastax.spark"  %% "spark-cassandra-connector"          % SparkCassandra // ApacheV2
     val sparkCassandraEmb = "com.datastax.spark"  %% "spark-cassandra-connector-embedded" % SparkCassandra embeddedExclusions // ApacheV2
     val sigar             = "org.fusesource"      % "sigar"                               % Sigar
+    val sprayCan          = "io.spray"            %% "spray-can"                          % Spray
+    val sprayRouting      = "io.spray"            %% "spray-routing"                      % Spray
+    val sprayJason        = "io.spray"            %% "spray-json"                         % "1.3.1"
   }
 
   object Test {
@@ -142,7 +145,7 @@ object Dependencies {
   val test = Seq(Test.akkaTestKit, Test.scalatest)
 
   /** Module deps */
-  val client = akka ++ logging ++ scalaz ++ Seq(pickling, sparkCassandraEmb, sigar)
+  val client = akka ++ logging ++ scalaz ++ Seq(pickling, sparkCassandraEmb, sigar, sprayCan, sprayRouting, sprayJason)
 
   val core = akka ++ logging ++ time
 
