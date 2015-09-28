@@ -14,9 +14,7 @@ import spray.routing._
 
 class HttpDataFeedActor(kafka: ActorRef) extends HttpServiceActor
     with RestRoutes {
-                  
-    println("++++>>> HttpDataFeedActor, constructor")  
-        
+                          
     def receive = runRoute(routes)
     
     def obtainKafkaApi = kafka // TODO: HACK!!!

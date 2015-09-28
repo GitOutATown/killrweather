@@ -24,12 +24,11 @@ import akka.stream.{ActorFlowMaterializerSettings, ActorFlowMaterializer}
 import akka.actor._
 import akka.cluster.Cluster
 import akka.util.Timeout
-//import akka.http.scaladsl.Http
+//import akka.http.scaladsl.Http // Using Spray instead
 import akka.http.scaladsl.model._
 import akka.routing.BalancingPool
 import kafka.producer.ProducerConfig
 import kafka.serializer.StringEncoder
-//import com.typesafe.config.ConfigFactory
 import com.datastax.spark.connector.embedded._
 import com.datastax.killrweather.cluster.ClusterAwareNodeGuardian
 import com.datastax.spark.connector.embedded.KafkaEvent.KafkaMessageEnvelope
@@ -50,8 +49,6 @@ import com.typesafe.config.{ Config, ConfigFactory }
     */
 object KafkaDataIngestionApp extends App {
         
-    println("====>>> STARTING KafkaDataIngestionApp")
-
     /** Creates the ActorSystem. */
     implicit val system = ActorSystem("KillrWeather", ConfigFactory.parseString("akka.remote.netty.tcp.port = 2551"))
     
@@ -91,15 +88,15 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian
         val host = config.getString("killrweather.http.host")
         val port = config.getInt("killrweather.http.port")
         
-        println("---->> killrweather.http.host: " + host)
-        println("---->> killrweather.http.port: " + port)
+        log.info("HttpNodeGuardian, host: " + host)
+        log.info("HttpNodeGuardian, port: " + port)
         
         implicit val system = context.system    
         implicit val executionContext = system.dispatcher
         implicit val timeout = requestTimeout(config)
 
         log.info("Starting data ingestion on {}.", cluster.selfAddress)
-        log.info("---> DefaultPath: " + DefaultPath)
+        log.info("DefaultPath: " + DefaultPath)
 
         /* Handles initial data ingestion in Kafka for running as a demo. */
         for(
@@ -110,7 +107,7 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian
             kafkaRouter ! KafkaMessageEnvelope[String, String](KafkaTopic, KafkaKey, data)
         }
         
-        log.info("File ingestion completed {}.", cluster.selfAddress)
+        log.info("On startup file ingestion completed {}.", cluster.selfAddress)
         
         log.info("Creating feed ingestion API")
         
@@ -154,16 +151,15 @@ trait ShutdownIfNotBound {
 
     def shutdownIfNotBound(f: Future[Any]) //<co id="ch02_shutdownIfNotBound"/>
         (implicit system: ActorSystem, ec: ExecutionContext) = {
-        println("---->>> shutdownIfNotBound TOP")
         f.mapTo[Http.Event].map {
             case Http.Bound(address) =>
-                println(s"----> REST interface bound to $address")
+                println(s"REST interface bound to $address")
             case Http.CommandFailed(cmd) => //<co id="http_command_failed"/>
-                println(s"----> REST interface could not bind: ${cmd.failureMessage}, shutting down.")
+                println(s"REST interface could not bind: ${cmd.failureMessage}, shutting down.")
                 system.shutdown()
         }.recover {
             case e: Throwable =>
-                println(s"----> Unexpected error binding to HTTP: ${e.getMessage}, shutting down.")
+                println(s"Unexpected error binding to HTTP: ${e.getMessage}, shutting down.")
                 system.shutdown()
         }
     }
