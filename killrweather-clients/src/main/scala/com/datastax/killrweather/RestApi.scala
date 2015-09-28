@@ -12,34 +12,65 @@ import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 import spray.routing._
 
-//import spray.http._
-//import HttpMethods._
-
-class HttpDataFeedActor(timeout: Timeout) extends HttpServiceActor
+class HttpDataFeedActor(kafka: ActorRef) extends HttpServiceActor
     with RestRoutes {
                   
     println("++++>>> HttpDataFeedActor, constructor")  
+        
+    def receive = runRoute(routes)
     
-    def receive = runRoute {
-        path("ping") {
-            get {
-                complete("PONG")
+    def obtainKafkaApi = kafka // TODO: HACK!!!
+}
+
+trait RestRoutes extends HttpService
+    with KafkaEndpointApi {
+    
+    def routes: Route = feedRoute
+    
+    def feedRoute = path("weather"/"data") {
+        post {
+            headerValueByName("X-DATA-FEED") { filePath =>
+                complete(kafkaIngest(filePath))
             }
         }
     }
-        
-    //def receive = runRoute(routes)
 }
 
-trait RestRoutes extends HttpService {
-      //with BoxOfficeApi
-      //with EventMarshalling {
-    import StatusCodes._
-
-    //def routes: Route = feedRoute // eventsRoute ~ eventRoute ~ ticketsRoute
+// TODO: This needs to be merged with code that's in HttpNodeGuardian.
+// Having to duplicate a bunch of that.
+trait KafkaEndpointApi {
+    import Sources._
+    import java.io.{BufferedInputStream, FileInputStream, File => JFile}
+    import com.typesafe.config.ConfigFactory
+    import com.datastax.spark.connector.embedded.KafkaEvent.KafkaMessageEnvelope
     
-    //def feedRoute = 
-
+    // TODO: HACK!
+    def obtainKafkaApi(): ActorRef
+    
+    val kafkaRouter = obtainKafkaApi
+    
+    private val config = ConfigFactory.load
+    protected val DefaultExtension = config.getString("killrweather.data.file.extension")
+    protected val KafkaTopic = config.getString("kafka.topic.raw")
+    protected val KafkaKey = config.getString("kafka.group.id")
+    
+    def kafkaIngest(filePath: String) = {
+        
+        println("---> kafkaIngest, filePath: " + filePath)
+        
+        //val fs = FileSource(new JFile(s"filePath".replace("./", "")))
+        val fs = FileSource(new JFile(filePath))
+    
+          /* Handles initial data ingestion in Kafka for running as a demo. */
+        for(data <- fs.data){
+            println("Sending to Kafka: " + data)
+            kafkaRouter ! KafkaMessageEnvelope[String, String](KafkaTopic, KafkaKey, data)
+        }
+        
+        // TODO: HACK! Finish learning how to do this properly in Spray!
+        "---->>> Kafka ingest completed."
+        
+    }
 }
 
 
