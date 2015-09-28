@@ -40,12 +40,13 @@ import com.typesafe.config.{ Config, ConfigFactory }
 
 /** Run with: sbt clients/run for automatic data file import to Kafka.
     *
-    * To do manual curl import:
+    * To do manual httpie import:
+    * This example uses httpie
+    * https://github.com/jkbrzt/httpie
     * {{{
-    *     curl -v -X POST --header "X-DATA-FEED: ./data/load/sf-2008.csv.gz" http://127.0.0.1:8080/weather/data
+            http POST http://127.0.0.1:5000/weather/data X-DATA-FEED:./data/test_load/sf-2008.csv
     * }}}
     *
-    * NOTE does not support running on Windows
     */
 object KafkaDataIngestionApp extends App {
         
