@@ -1,6 +1,7 @@
 # GitOutATown/KillrWeather
 
-This repo is a fork of https://github.com/killrweather/killrweather.git
+This repo is a fork of
+    https://github.com/killrweather/killrweather.git
 for the purpose of exploration and modification.
 See that repo for the original project details.
 
@@ -134,7 +135,8 @@ In the cql shell:
 
 #### An HTTP Request
 This example uses [httpie]: (https://github.com/jkbrzt/httpie)
-http POST http://127.0.0.1:5000/weather/data X-DATA-FEED:./data/test_load/sf-2008.csv
+
+    http POST http://127.0.0.1:5000/weather/data X-DATA-FEED:./data/test_load/sf-2008.csv
 
 
 #### From an IDE
