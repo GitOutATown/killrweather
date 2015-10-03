@@ -34,8 +34,6 @@ trait RestRoutes extends HttpService
     }
 }
 
-// TODO: This needs to be merged with code that's in HttpNodeGuardian.
-// Having to duplicate a bunch of that.
 trait KafkaEndpointApi {
     import Sources._
     import java.io.{BufferedInputStream, FileInputStream, File => JFile}
@@ -54,20 +52,18 @@ trait KafkaEndpointApi {
     
     def kafkaIngest(filePath: String) = {
         
-        println("---> kafkaIngest, filePath: " + filePath)
+        println("kafkaIngest, filePath: " + filePath)
         
-        //val fs = FileSource(new JFile(s"filePath".replace("./", "")))
         val fs = FileSource(new JFile(filePath))
     
-          /* Handles initial data ingestion in Kafka for running as a demo. */
         for(data <- fs.data){
             println("Sending to Kafka: " + data)
             kafkaRouter ! KafkaMessageEnvelope[String, String](KafkaTopic, KafkaKey, data)
         }
         
-        // TODO: HACK! Finish learning how to do this properly in Spray!
+        // TODO: HACK! Finish learning how to create proper 
+        // HTTP response in Spray!
         "---->>> Kafka ingest completed."
-        
     }
 }
 

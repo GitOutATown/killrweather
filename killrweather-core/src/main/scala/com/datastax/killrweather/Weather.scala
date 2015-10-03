@@ -69,7 +69,7 @@ object Weather {
     windDirection: Int,
     windSpeed: Double,
     skyCondition: Int,
-    skyConditionText: String,
+    skyConditionText: String, // RW: should default to null ?
     oneHourPrecip: Double,
     sixHourPrecip: Double) extends WeatherModel
 
