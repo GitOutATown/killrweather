@@ -18,7 +18,7 @@ object Versions {
 
   val Akka           = "2.3.9"
   val AkkaStreams    = "1.0-RC3"
-  val Albebird       = "0.8.1"
+  val Algebird       = "0.8.1"
   val Bijection      = "0.7.0"
   val Cassandra      = "2.1.3"
   val CassandraDriver = "2.1.5"

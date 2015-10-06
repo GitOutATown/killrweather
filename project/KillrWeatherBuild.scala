@@ -97,7 +97,7 @@ object Dependencies {
     val akkaCluster       = "com.typesafe.akka"   %% "akka-cluster"                       % Akka
     val akkaRemote        = "com.typesafe.akka"   %% "akka-remote"                        % Akka
     val akkaSlf4j         = "com.typesafe.akka"   %% "akka-slf4j"                         % Akka
-    val algebird          = "com.twitter"         %% "algebird-core"                      % Albebird
+    val algebird          = "com.twitter"         %% "algebird-core"                      % Algebird
     val bijection         = "com.twitter"         %% "bijection-core"                     % Bijection
     val driver            = "com.datastax.cassandra" % "cassandra-driver-core"            % CassandraDriver driverExclusions
     val jodaTime          = "joda-time"           % "joda-time"                           % JodaTime   % "compile;runtime" // ApacheV2
@@ -147,7 +147,7 @@ object Dependencies {
   /** Module deps */
   val client = akka ++ logging ++ scalaz ++ Seq(pickling, sparkCassandraEmb, sigar, sprayCan, sprayRouting, sprayJason)
 
-  val core = akka ++ logging ++ time
+  val core = akka ++ logging ++ time ++ Seq(sprayJason)
 
   val app = connector ++ json ++ scalaz ++ test ++
     Seq(algebird, bijection, kafka, kafkaStreaming, pickling, sparkML, sigar)

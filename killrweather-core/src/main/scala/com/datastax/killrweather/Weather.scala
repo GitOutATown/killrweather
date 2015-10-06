@@ -16,8 +16,9 @@
 package com.datastax.killrweather
 
 import org.joda.time.DateTime
+import spray.json.DefaultJsonProtocol
 
-object Weather {
+object Weather extends DefaultJsonProtocol {
 
   /** Base marker trait. */
   @SerialVersionUID(1L)
@@ -69,12 +70,15 @@ object Weather {
     windDirection: Int,
     windSpeed: Double,
     skyCondition: Int,
-    skyConditionText: String, // RW: should default to null ?
+    skyConditionText: String,
     oneHourPrecip: Double,
     sixHourPrecip: Double) extends WeatherModel
-
-  object RawWeatherData {
-    /** Tech debt - don't do it this way ;) */
+    
+  // RW: Using the default json marshalling.
+  implicit val RawWeatherFormat = jsonFormat14(RawWeatherData)
+    
+  /*object RawWeatherData {
+    /** Tech debt - don't do it this way ;) */ RW: Then use DefaultJsonProtocol (below)
     def apply(array: Array[String]): RawWeatherData = {
       RawWeatherData(
         wsid = array(0),
@@ -92,7 +96,7 @@ object Weather {
         oneHourPrecip = array(11).toDouble,
         sixHourPrecip = Option(array(12).toDouble).getOrElse(0))
     }
-  }
+  }*/
 
   trait WeatherAggregate extends WeatherModel with Serializable {
     def wsid: String

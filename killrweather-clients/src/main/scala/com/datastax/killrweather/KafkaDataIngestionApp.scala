@@ -102,7 +102,7 @@ final class HttpNodeGuardian extends ClusterAwareNodeGuardian
         /* Handles initial data ingestion in Kafka for running as a demo. */
         for(
             fs <- initialData; 
-            data <- fs.data
+            data <- fs.data // data is a string
         ){
             log.info("Sending {} to Kafka", data)
             kafkaRouter ! KafkaMessageEnvelope[String, String](KafkaTopic, KafkaKey, data)

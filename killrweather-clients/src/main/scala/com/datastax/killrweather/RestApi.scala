@@ -11,24 +11,37 @@ import akka.util.Timeout
 import spray.http.StatusCodes
 import spray.httpx.SprayJsonSupport._
 import spray.routing._
+import spray.json.DefaultJsonProtocol
 
 class HttpDataFeedActor(kafka: ActorRef) extends HttpServiceActor
     with RestRoutes {
                           
-    def receive = runRoute(routes)
+    def receive = {
+        println("--->HttpDataFeedActor runRoute...")
+        runRoute(routes)
+    }
     
     def obtainKafkaApi = kafka // TODO: HACK!!!
 }
 
 trait RestRoutes extends HttpService
     with KafkaEndpointApi {
-    
+    import Weather._
+        
     def routes: Route = feedRoute
     
     def feedRoute = path("weather"/"data") {
         post {
+            println("--->feedRoute post...")
             headerValueByName("X-DATA-FEED") { filePath =>
-                complete(kafkaIngest(filePath))
+                complete(kafkaFileIngest(filePath)) // TODO: Should this be a message? No, I think local function is appropriate
+            }
+        } ~
+        put {
+            println("--->feedRoute put...")
+            // RW: Maybe this transformation doesn't belong here and the stringified JSON should be sent to Spark as is, and then Spark could convert it to the case class. I need to examine what Spark is currently doing.
+            handleWith { rawRecord: RawWeatherData => 
+                rawRecord 
             }
         }
     }
@@ -50,7 +63,7 @@ trait KafkaEndpointApi {
     protected val KafkaTopic = config.getString("kafka.topic.raw")
     protected val KafkaKey = config.getString("kafka.group.id")
     
-    def kafkaIngest(filePath: String) = {
+    def kafkaFileIngest(filePath: String) = {
         
         println("kafkaIngest, filePath: " + filePath)
         

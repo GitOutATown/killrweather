@@ -39,7 +39,22 @@ class KafkaStreamingActor(kafkaParams: Map[String, String],
   val kafkaStream = KafkaUtils.createStream[String, String, StringDecoder, StringDecoder](
     ssc, kafkaParams, Map(KafkaTopicRaw -> 1), StorageLevel.DISK_ONLY_2)
     .map(_._2.split(","))
-    .map(RawWeatherData(_))
+    .map(array => RawWeatherData(
+        array(0),
+        array(1).toInt,
+        array(2).toInt,
+        array(3).toInt,
+        array(4).toInt,
+        array(5).toDouble,
+        array(6).toDouble,
+        array(7).toDouble,
+        array(8).toInt,
+        array(9).toDouble,
+        array(10).toInt,
+        array(11),
+        array(11).toDouble,
+        Option(array(12).toDouble).getOrElse(0))
+    )
 
   /** Saves the raw data to Cassandra - raw table. */
   kafkaStream.saveToCassandra(CassandraKeyspace, CassandraTableRaw)
