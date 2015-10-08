@@ -41,6 +41,7 @@ trait RestRoutes extends HttpService
             println("--->feedRoute put...")
             // RW: Maybe this transformation doesn't belong here and the stringified JSON should be sent to Spark as is, and then Spark could convert it to the case class. I need to examine what Spark is currently doing.
             handleWith { rawRecord: RawWeatherData => 
+                print("--->rawRecord: " + rawRecord)
                 rawRecord 
             }
         }

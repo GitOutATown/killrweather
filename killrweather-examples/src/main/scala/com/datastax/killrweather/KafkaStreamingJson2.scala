@@ -17,51 +17,66 @@ import com.datastax.spark.connector.embedded.{Assertions, EmbeddedKafka}
  * Uses json4s for json work from the kafka stream.
  */
 object KafkaStreamingJson2 extends App with Assertions {
-  import com.datastax.spark.connector.streaming._
+    import com.datastax.spark.connector.streaming._
+    
+    println("-->KafkaStreamingJson2 TOP...")
 
-  implicit val formats = DefaultFormats
+    implicit val formats = DefaultFormats
+    
+    println("---> <1>")
 
-  /* Small sample data */
-  val data = Seq(
-    """{"user":"helena","commits":98, "month":3, "year":2015}""",
-    """{"user":"jacek-lewandowski", "commits":72, "month":3, "year":2015}""",
-    """{"user":"pkolaczk", "commits":42, "month":3, "year":2015}""")
+    /* Small sample data */
+    val data = Seq(
+        """{"user":"helena","commits":98, "month":3, "year":2015}""",
+        """{"user":"jacek-lewandowski", "commits":72, "month":3, "year":2015}""",
+        """{"user":"pkolaczk", "commits":42, "month":3, "year":2015}""")
+        
+    println("---> <2>")
 
-  /* Kafka (embedded) setup */
-  val kafka = new EmbeddedKafka
-  kafka.createTopic("github")
+    /* Kafka (embedded) setup */
+    val kafka = new EmbeddedKafka
+    
+    println("---> <3>")
+    
+    kafka.createTopic("github")
+    
+    println("---> About to call producer new, send, and close...")
 
-  // simulate another process streaming data to Kafka
-  val producer = new Producer[String, String](kafka.producerConfig)
-  data.foreach (m => producer.send(new KeyedMessage[String, String]("github", "githubstats", m)))
-  producer.close()
+    // simulate another process streaming data to Kafka
+    val producer = new Producer[String, String](kafka.producerConfig)
+    data.foreach (m => producer.send(new KeyedMessage[String, String]("github", "githubstats", m)))
+    producer.close()
 
-  /* Spark initialization */
-  val conf = new SparkConf().setAppName(getClass.getSimpleName)
-    .setMaster("local[*]")
-    .set("spark.cassandra.connection.host", "127.0.0.1")
-    .set("spark.cleaner.ttl", "5000")
-  val ssc = new StreamingContext(new SparkContext(conf), Seconds(1))
+    /* Spark initialization */
+    val conf = new SparkConf().setAppName(getClass.getSimpleName)
+        .setMaster("local[*]")
+        .set("spark.cassandra.connection.host", "127.0.0.1")
+        .set("spark.cleaner.ttl", "5000")
+    val ssc = new StreamingContext(new SparkContext(conf), Seconds(1))
 
-  /* Cassandra setup */
-  CassandraConnector(conf).withSessionDo { session =>
-    session.execute("DROP KEYSPACE IF EXISTS githubstats")
-    session.execute("CREATE KEYSPACE githubstats WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1 }")
-    session.execute("""CREATE TABLE githubstats.monthly_commits (user VARCHAR PRIMARY KEY, commits INT, month INT, year INT)""")
-  }
+    /* Cassandra setup */
+    CassandraConnector(conf).withSessionDo { session =>
+        session.execute("DROP KEYSPACE IF EXISTS githubstats")
+        session.execute("CREATE KEYSPACE githubstats WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1 }")
+        session.execute("""CREATE TABLE githubstats.monthly_commits (user VARCHAR PRIMARY KEY, commits INT, month INT, year INT)""")
+    }
 
-  val stream = KafkaUtils.createStream[String, String, StringDecoder, StringDecoder](
-    ssc, kafka.kafkaParams, Map("github" -> 5), StorageLevel.MEMORY_ONLY)
-    .map{ case (_,v) => JsonParser.parse(v).extract[MonthlyCommits]}
-    .saveToCassandra("githubstats","monthly_commits")
+    val stream = KafkaUtils.createStream[String, String, StringDecoder, StringDecoder](
+        ssc, kafka.kafkaParams, Map("github" -> 5), StorageLevel.MEMORY_ONLY)
+        .map{ case (_,v) => JsonParser.parse(v).extract[MonthlyCommits]}
+        .saveToCassandra("githubstats","monthly_commits")
 
-  ssc.start()
+    println("--->About to call ssc.start...")
+    ssc.start()
+    println("--->After ssc.start...")
 
-  /* validate */
-  val table = ssc.cassandraTable[MonthlyCommits]("githubstats", "monthly_commits")
-  awaitCond(table.collect.size > 1, 5.seconds)
-  table.toLocalIterator foreach println
+    /* validate */
+    val table = ssc.cassandraTable[MonthlyCommits]("githubstats", "monthly_commits")
+    awaitCond(table.collect.size > 1, 5.seconds)
+    table.toLocalIterator foreach println
 
-  ssc.awaitTermination()
+    ssc.awaitTermination()
+    
+    println("--->KafkaStreamingJson2 BOTTOM")
 }
 
